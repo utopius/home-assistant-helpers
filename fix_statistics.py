@@ -151,20 +151,26 @@ def entries_with_fixed_sum(statistics: Iterable[StatisticEntry]) -> Iterable[Sta
 
 def generate_sql(statistics: Iterable[StatisticEntry], output_file: Path, tablename: str):
     output_file.unlink(missing_ok=True)
+    fixed_states = list(entries_with_fixed_state(statistics))
+    fixed_sums = list(entries_with_fixed_sum(statistics))
 
     ids = []
     with open(output_file, mode="w") as file:
         file.write(f"   UPDATE {tablename}\n")
-        file.write(f"       SET state = CASE id\n")
-        for entry in entries_with_fixed_state(statistics):
-            file.write(f"                       WHEN {entry.id} THEN {entry.state}\n")
-            ids.append(str(entry.id))
-        file.write(f"                   END,\n")
-        file.write(f"       SET sum = CASE id\n")
-        for entry in entries_with_fixed_sum(statistics):
-            file.write(f"                   WHEN {entry.id} THEN {entry.sum}\n")
-            ids.append(str(entry.id))
-        file.write(f"                 END\n")
+
+        if len(fixed_states) > 0:
+            file.write(f"       SET state = CASE id\n")
+            for entry in fixed_states:
+                file.write(f"                       WHEN {entry.id} THEN {entry.state}\n")
+                ids.append(str(entry.id))
+            file.write(f"                   END,\n")
+
+        if len(fixed_sums) > 0:
+            file.write(f"       SET sum = CASE id\n")
+            for entry in fixed_sums:
+                file.write(f"                   WHEN {entry.id} THEN {entry.sum}\n")
+                ids.append(str(entry.id))
+            file.write(f"                 END\n")
         ids_list = str.join(",", ids)
         file.write(f"WHERE id IN ({ids_list})\n")
     log.info(f"SQL file written to {output_file}")
